@@ -8,14 +8,17 @@ import com.demo.resource.repository.DataRecordRepository;
 import com.demo.resource.repository.RelatedEntityRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import javax.sql.DataSource;
 import java.math.BigDecimal;
 import java.util.*;
 
 @Service
+@ConditionalOnBean(DataSource.class)
 public class DatabaseService {
 
     private final DataRecordRepository dataRecordRepository;

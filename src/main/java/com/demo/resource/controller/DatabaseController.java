@@ -1,13 +1,16 @@
 package com.demo.resource.controller;
 
 import com.demo.resource.service.DatabaseService;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.sql.DataSource;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/db")
+@ConditionalOnBean(DataSource.class)
 public class DatabaseController {
 
     private final DatabaseService databaseService;

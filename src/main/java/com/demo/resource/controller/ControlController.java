@@ -2,7 +2,9 @@ package com.demo.resource.controller;
 
 import com.demo.resource.service.CpuService;
 import com.demo.resource.service.DatabaseService;
+import com.demo.resource.service.LockContentionService;
 import com.demo.resource.service.MemoryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
@@ -16,17 +18,20 @@ public class ControlController {
 
     private final CpuService cpuService;
     private final MemoryService memoryService;
-    private final DatabaseService databaseService;
-    private final JdbcTemplate jdbcTemplate;
+    private final LockContentionService lockContentionService;
+    
+    @Autowired(required = false)
+    private DatabaseService databaseService;
+    
+    @Autowired(required = false)
+    private JdbcTemplate jdbcTemplate;
 
     public ControlController(CpuService cpuService,
                             MemoryService memoryService,
-                            DatabaseService databaseService,
-                            JdbcTemplate jdbcTemplate) {
+                            LockContentionService lockContentionService) {
         this.cpuService = cpuService;
         this.memoryService = memoryService;
-        this.databaseService = databaseService;
-        this.jdbcTemplate = jdbcTemplate;
+        this.lockContentionService = lockContentionService;
     }
 
     /**
@@ -37,9 +42,12 @@ public class ControlController {
     public ResponseEntity<Map<String, Object>> clearData() {
         int cpuStoreSize = cpuService.getDataStoreSize();
         int memoryStoreSize = memoryService.getMemoryStoreSize();
+        int lockMapSize = lockContentionService.getSharedMapSize();
+        int lockListSize = lockContentionService.getSharedListSize();
         
         cpuService.clearData();
         memoryService.clearMemory();
+        lockContentionService.clearData();
         
         // Suggest garbage collection
         System.gc();
@@ -48,6 +56,8 @@ public class ControlController {
         response.put("operation", "data-clear");
         response.put("cpuKeysCleared", cpuStoreSize);
         response.put("memoryKeysCleared", memoryStoreSize);
+        response.put("lockMapEntriesCleared", lockMapSize);
+        response.put("lockListEntriesCleared", lockListSize);
         response.put("gcSuggested", true);
         response.put("timestamp", System.currentTimeMillis());
         
@@ -60,6 +70,14 @@ public class ControlController {
      */
     @PostMapping("/db/reset")
     public ResponseEntity<Map<String, Object>> resetDatabase() {
+        if (jdbcTemplate == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("operation", "database-reset");
+            response.put("status", "unavailable");
+            response.put("message", "Database is not enabled in this mode. Use 'default' profile for database features.");
+            return ResponseEntity.status(503).body(response);
+        }
+        
         try {
             // Truncate tables
             jdbcTemplate.execute("TRUNCATE TABLE audit_log CASCADE");
@@ -89,6 +107,15 @@ public class ControlController {
      */
     @GetMapping("/health/db")
     public ResponseEntity<Map<String, Object>> checkDatabaseHealth() {
+        if (jdbcTemplate == null) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "unavailable");
+            response.put("database", "not-enabled");
+            response.put("message", "Database is not enabled in this mode. Use 'default' profile for database features.");
+            response.put("timestamp", System.currentTimeMillis());
+            return ResponseEntity.status(503).body(response);
+        }
+        
         try {
             jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             

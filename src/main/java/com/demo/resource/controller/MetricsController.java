@@ -2,9 +2,11 @@ package com.demo.resource.controller;
 
 import com.demo.resource.service.CpuService;
 import com.demo.resource.service.DatabaseService;
+import com.demo.resource.service.LockContentionService;
 import com.demo.resource.service.MemoryService;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zaxxer.hikari.HikariPoolMXBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,17 +24,20 @@ public class MetricsController {
 
     private final CpuService cpuService;
     private final MemoryService memoryService;
-    private final DatabaseService databaseService;
-    private final DataSource dataSource;
+    private final LockContentionService lockContentionService;
+    
+    @Autowired(required = false)
+    private DatabaseService databaseService;
+    
+    @Autowired(required = false)
+    private DataSource dataSource;
 
     public MetricsController(CpuService cpuService,
                             MemoryService memoryService,
-                            DatabaseService databaseService,
-                            DataSource dataSource) {
+                            LockContentionService lockContentionService) {
         this.cpuService = cpuService;
         this.memoryService = memoryService;
-        this.databaseService = databaseService;
-        this.dataSource = dataSource;
+        this.lockContentionService = lockContentionService;
     }
 
     /**
@@ -91,10 +96,15 @@ public class MetricsController {
         Map<String, Object> collectionSizes = new HashMap<>();
         collectionSizes.put("cpuDataStoreKeys", cpuService.getDataStoreSize());
         collectionSizes.put("memoryStoreKeys", memoryService.getMemoryStoreSize());
+        collectionSizes.put("lockSharedMapSize", lockContentionService.getSharedMapSize());
+        collectionSizes.put("lockSharedListSize", lockContentionService.getSharedListSize());
+        
+        // Lock contention metrics
+        Map<String, Object> contentionMetrics = lockContentionService.getMetrics();
         
         // HikariCP connection pool metrics
         Map<String, Object> connectionPool = new HashMap<>();
-        if (dataSource instanceof HikariDataSource) {
+        if (dataSource != null && dataSource instanceof HikariDataSource) {
             HikariDataSource hikariDataSource = (HikariDataSource) dataSource;
             HikariPoolMXBean poolMXBean = hikariDataSource.getHikariPoolMXBean();
             
@@ -105,13 +115,14 @@ public class MetricsController {
         }
         
         // Database stats
-        Map<String, Object> dbStats = databaseService.getDatabaseStats();
+        Map<String, Object> dbStats = databaseService != null ? databaseService.getDatabaseStats() : new HashMap<>();
         
         metrics.put("jvmMemory", jvmMemory);
         metrics.put("heapMemory", heapDetails);
         metrics.put("nonHeapMemory", nonHeapDetails);
         metrics.put("garbageCollection", gcStats);
         metrics.put("inMemoryCollections", collectionSizes);
+        metrics.put("lockContention", contentionMetrics);
         metrics.put("connectionPool", connectionPool);
         metrics.put("database", dbStats);
         metrics.put("timestamp", System.currentTimeMillis());
@@ -133,7 +144,9 @@ public class MetricsController {
             "/actuator/metrics/memory.load.calls",
             "/actuator/metrics/memory.stable.calls",
             "/actuator/metrics/database.slow.calls",
-            "/actuator/metrics/database.fast.calls"
+            "/actuator/metrics/database.fast.calls",
+            "/actuator/metrics/contention.operations",
+            "/actuator/metrics/contention.wait.time"
         });
         
         return ResponseEntity.ok(metrics);
