@@ -55,8 +55,11 @@ public class DatabaseService {
         
         long startTime = System.currentTimeMillis();
         
-        // Slow query 1: N+1 problem - fetch all records then iterate lazy relationships
-        List<DataRecord> allRecords = dataRecordRepository.findAll();
+        // Slow query 1: N+1 problem - fetch limited records then iterate lazy relationships
+        // FIXED: Limit to 100 records instead of all 75,000 to prevent OOM and connection exhaustion
+        Random random = new Random();
+        int offset = random.nextInt(74900); // Random offset for variety
+        List<DataRecord> allRecords = dataRecordRepository.findLimitedRecords(offset, 100);
         int relatedCount = 0;
         for (DataRecord record : allRecords) {
             // This triggers N+1 queries due to lazy loading
@@ -70,8 +73,8 @@ public class DatabaseService {
             Thread.currentThread().interrupt();
         }
         
-        // Slow query 2: Unindexed LIKE search
-        List<DataRecord> searchResults = dataRecordRepository.findByPayloadContaining("data");
+        // Slow query 2: Unindexed LIKE search (still slow but limited)
+        List<DataRecord> searchResults = dataRecordRepository.findByPayloadContainingLimit("data", 50);
         
         // Artificial delay
         try {
@@ -81,10 +84,9 @@ public class DatabaseService {
         }
         
         // Slow query 3: Complex join without proper indexing
-        Random random = new Random();
         String category = "category_" + random.nextInt(10);
         String status = "status_" + random.nextInt(5);
-        List<DataRecord> complexResults = dataRecordRepository.findByComplexCriteria(category, status);
+        List<DataRecord> complexResults = dataRecordRepository.findByComplexCriteriaLimit(category, status, 50);
         
         // Artificial delay
         try {
@@ -93,8 +95,8 @@ public class DatabaseService {
             Thread.currentThread().interrupt();
         }
         
-        // Slow query 4: Audit log search with subquery
-        List<AuditLog> auditResults = auditLogRepository.findByRecordCategoryContaining("category");
+        // Slow query 4: Audit log search with subquery (limited)
+        List<AuditLog> auditResults = auditLogRepository.findByRecordCategoryContainingLimit("category", 50);
         
         // Final artificial delay to hold connection longer
         try {

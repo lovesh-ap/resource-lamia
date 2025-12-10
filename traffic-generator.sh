@@ -257,10 +257,11 @@ make_request() {
     
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     
+    # Add timeouts: --connect-timeout (connection) and --max-time (total operation)
     if [[ "$method" == "POST" ]]; then
-        response=$(curl -s -w "\n%{http_code}" -X POST "${url}${params}" 2>&1)
+        response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 30 -X POST "${url}${params}" 2>&1)
     else
-        response=$(curl -s -w "\n%{http_code}" "${url}${params}" 2>&1)
+        response=$(curl -s -w "\n%{http_code}" --connect-timeout 5 --max-time 30 "${url}${params}" 2>&1)
     fi
     
     http_code=$(echo "$response" | tail -n1)
@@ -308,8 +309,8 @@ echo "Targets: ${TARGET_ARRAY[*]}"
 echo ""
 echo "Weights:"
 for target in "${TARGET_ARRAY[@]}"; do
-    local weight=$(get_endpoint_weight "$target")
-    local normalized=$((weight * 100 / TOTAL_WEIGHT))
+    weight=$(get_endpoint_weight "$target")
+    normalized=$((weight * 100 / TOTAL_WEIGHT))
     echo "  $target: ${normalized}%"
 done
 echo ""
@@ -321,7 +322,7 @@ echo "Starting traffic generation... (Press Ctrl+C to stop)"
 echo ""
 
 # Check if server is reachable
-if ! curl -s -f -o /dev/null "$BASE_URL/actuator/health"; then
+if ! curl -s -f -o /dev/null --connect-timeout 5 --max-time 10 "$BASE_URL/actuator/health"; then
     echo "Warning: Server at $BASE_URL may not be reachable"
     echo "Continuing anyway..."
     echo ""

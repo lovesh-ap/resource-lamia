@@ -44,8 +44,10 @@ public class MemoryService {
         String key = UUID.randomUUID().toString();
         List<byte[]> dataList = new ArrayList<>();
         
+        // Very gradual accumulation: 3-5 objects × 0.1-0.3KB (100-300 bytes) each
         for (int i = 0; i < objectCount; i++) {
-            byte[] data = new byte[sizeMB * 1024 * 1024];
+            // sizeMB param now represents 100-byte units (e.g., sizeMB=1 → 100 bytes)
+            byte[] data = new byte[sizeMB * 50]; // 0.1-0.3KB per object
             random.nextBytes(data);
             dataList.add(data);
         }
@@ -57,8 +59,8 @@ public class MemoryService {
         Map<String, Object> response = new HashMap<>();
         response.put("operation", "memory-load");
         response.put("objectsCreated", objectCount);
-        response.put("sizePerObjectMB", sizeMB);
-        response.put("totalStoredMB", objectCount * sizeMB);
+        response.put("sizePerObjectBytes", sizeMB * 50);
+        response.put("totalStoredBytes", objectCount * sizeMB * 50);
         response.put("totalKeysInStore", memoryStore.size());
         response.put("durationMs", duration);
         

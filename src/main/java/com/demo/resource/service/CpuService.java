@@ -61,14 +61,12 @@ public class CpuService {
         // CPU-intensive: Matrix multiplication
         int[][] result = matrixMultiplication(50, 50);
         
-        // Memory accumulation: Store large byte arrays
+        // Memory accumulation: Store 1KB per request for very gradual accumulation
         String key = UUID.randomUUID().toString();
         List<byte[]> dataList = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            byte[] data = new byte[dataSize * 1024 * 1024]; // dataSize MB
-            random.nextBytes(data);
-            dataList.add(data);
-        }
+        byte[] data = new byte[512]; // Exactly 0.5KB per request
+        random.nextBytes(data);
+        dataList.add(data);
         dataStore.put(key, dataList);
         
         long duration = System.currentTimeMillis() - startTime;
